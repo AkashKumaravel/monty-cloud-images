@@ -1,0 +1,55 @@
+openapi: "3.0.3"
+info:
+  title: Image Service API
+  version: "1.0.0"
+paths:
+  /upload:
+    post:
+      summary: Generate pre-signed upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, filename]
+              properties:
+                user_id: { type: string }
+                filename: { type: string }
+                content_type: { type: string, default: "image/jpeg" }
+      responses:
+        "200":
+          description: Pre-signed URL generated
+  /images:
+    get:
+      summary: List images for a user
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of image metadata
+  /images/{image_id}/download:
+    get:
+      summary: Get pre-signed download URL
+      parameters:
+        - name: image_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Download URL and metadata
+  /images/{image_id}:
+    delete:
+      summary: Delete an image
+      parameters:
+        - name: image_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Image deleted
