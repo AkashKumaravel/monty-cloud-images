@@ -5,7 +5,7 @@ def get_env_variable(name, required=True, default=None):
     value = os.getenv(name, default)
     if required and value is None:
         raise ValueError(f"Missing required environment variable: {name}")
-    return value
+    return value or None
 
 
 LOCALSTACK_ENDPOINT = None
