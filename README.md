@@ -80,7 +80,7 @@ Client ──► API Gateway ──► Lambda ──► S3 / DynamoDB / SQS
 ```bash
 # 1. Clone the repo
 git clone <repo-url>
-cd monty-cloud-image-service
+cd monty-cloud-images
 
 # 2. Install Python dependencies
 pip install -r requirements.txt
