@@ -169,6 +169,9 @@ deploy_lambda "delete-worker"           "handlers.delete_worker.handler"
 deploy_lambda "s3-event-handler"        "handlers.s3_event_handler.handler"
 deploy_lambda "pending-cleanup-handler" "handlers.pending_cleanup_handler.handler"
 
+# Allow time for Lambdas to fully register before wiring triggers
+sleep 5
+
 # -------------------------
 # DLQ for s3-event-handler Lambda
 # -------------------------
@@ -187,6 +190,9 @@ echo "  ✅ s3-event-handler → $S3_EVENT_DLQ_NAME (after 2 retries)"
 echo "🔔 Configuring S3 event notification..."
 
 S3_EVENT_LAMBDA_ARN="arn:aws:lambda:$REGION:000000000000:function:s3-event-handler"
+
+# Lambda needs a moment to be fully registered before S3 can validate it
+sleep 5
 
 $AWS s3api put-bucket-notification-configuration \
   --bucket $S3_BUCKET \
