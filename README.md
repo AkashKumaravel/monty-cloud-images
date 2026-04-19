@@ -2,6 +2,19 @@
 
 Serverless image management service built with AWS Lambda, S3, DynamoDB, API Gateway, and SQS — fully testable locally via LocalStack.
 
+## LocalStack — Local AWS Development
+
+This project uses [LocalStack](https://localstack.cloud/) to emulate AWS services locally. LocalStack runs as a Docker container and provides a local endpoint (`http://localhost:4566`) that mimics real AWS APIs — no AWS account or credentials needed.
+
+All infrastructure (S3, DynamoDB, Lambda, API Gateway, SQS, EventBridge) is created automatically by the setup script against this local endpoint.
+
+**Useful resources if you're new to LocalStack:**
+
+- [What is LocalStack & Getting Started](https://docs.localstack.cloud/aws/getting-started/) — overview and first steps
+- [LocalStack AWS Service Reference](https://docs.localstack.cloud/aws/) — supported AWS services and their coverage
+- [LocalStack with Docker Compose](https://learnbatta.com/blog/aws-localstack-with-docker-compose/#docker-compose-file-for-localstack-docker-composeyml) — how to set up LocalStack using Docker Compose
+
+
 ## Architecture
 
 ```
@@ -440,15 +453,3 @@ Delete requests are queued to SQS rather than processed synchronously. This give
 If a client requests an upload URL but never uploads the file, the DynamoDB record stays in `PENDING` state. A scheduled EventBridge rule triggers the cleanup handler every 24 hours to delete PENDING records older than 24 hours.
 
 ---
-
-## LocalStack — Local AWS Development
-
-This project uses [LocalStack](https://localstack.cloud/) to emulate AWS services locally. LocalStack runs as a Docker container and provides a local endpoint (`http://localhost:4566`) that mimics real AWS APIs — no AWS account or credentials needed.
-
-All infrastructure (S3, DynamoDB, Lambda, API Gateway, SQS, EventBridge) is created automatically by the setup script against this local endpoint.
-
-**Useful resources if you're new to LocalStack:**
-
-- [What is LocalStack & Getting Started](https://docs.localstack.cloud/aws/getting-started/) — overview and first steps
-- [LocalStack AWS Service Reference](https://docs.localstack.cloud/aws/) — supported AWS services and their coverage
-- [LocalStack with Docker Compose](https://learnbatta.com/blog/aws-localstack-with-docker-compose/#docker-compose-file-for-localstack-docker-composeyml) — how to set up LocalStack using Docker Compose
