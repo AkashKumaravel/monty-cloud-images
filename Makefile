@@ -1,30 +1,30 @@
-.PHONY: setup test deploy clean start stop
+.PHONY: all up down setup clean test deploy
 
-start:
+up:
 	docker-compose up -d
 
-stop:
-	docker-compose down
+down:
+	docker-compose down -v
 
-setup: start
+wait:
 	@echo "Waiting for LocalStack..."
-	sleep 5
+	@sleep 10
+
+setup: up wait
+	@echo "🚀 Running full infra setup..."
 	bash setup-aws.sh
 
-test:
-	PYTHONPATH=src/layer:. pytest tests/ -v
+all: up wait setup
+	@echo "🎉 FULL LOCALSTACK ENV READY"
 
-test-services:
-	PYTHONPATH=src/layer:. pytest tests/test_services.py -v
+test:
+	PYTHONPATH=src/layer:src pytest tests/ -v
 
 deploy:
-	@echo "Packaging Lambda layer..."
-	cd src/layer && zip -r ../../layer.zip python/
-	@echo "Packaging handlers..."
-	cd src/handlers && zip -r ../../handlers.zip *.py
-	@echo "Deploy artifacts ready."
+	@echo "📦 Packaging Lambda..."
+	cd src && zip -r ../function.zip . > /dev/null
 
 clean:
 	docker-compose down -v
-	rm -f layer.zip handlers.zip
+	rm -f function.zip
 	find . -type d -name __pycache__ -exec rm -rf {} +

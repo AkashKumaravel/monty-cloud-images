@@ -5,8 +5,11 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,dynamodb
+      - SERVICES=s3,dynamodb,lambda,apigateway,sqs,logs,cloudwatch,events
       - DEBUG=1
       - AWS_DEFAULT_REGION=us-east-1
+      - LAMBDA_EXECUTOR=docker
+      - LAMBDA_DOCKER_NETWORK=${COMPOSE_PROJECT_NAME:-monty-cloud-image-service}_default
+      - PERSISTENCE=0
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
