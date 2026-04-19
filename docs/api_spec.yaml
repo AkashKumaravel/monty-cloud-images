@@ -1,55 +1,230 @@
 openapi: "3.0.3"
 info:
-  title: Image Service API
+  title: Monty Cloud Image Service API
+  description: Serverless image management service — upload, list, download, and delete images.
   version: "1.0.0"
+
+servers:
+  - url: http://localhost:4566/restapis/{api_id}/dev/_user_request_
+    description: LocalStack
+    variables:
+      api_id:
+        default: "<API_ID>"
+        description: API Gateway ID printed by `make all`
+
 paths:
-  /upload:
+  /images/upload:
     post:
-      summary: Generate pre-signed upload URL
+      summary: Upload image
+      description: Generates a pre-signed S3 upload URL and creates a PENDING metadata record.
+      parameters:
+        - $ref: "#/components/parameters/UserIdHeader"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [user_id, filename]
+              required: [file_name]
               properties:
-                user_id: { type: string }
-                filename: { type: string }
-                content_type: { type: string, default: "image/jpeg" }
+                file_name:
+                  type: string
+                  example: "photo.png"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  default: []
+                  example: ["vacation", "beach"]
       responses:
         "200":
-          description: Pre-signed URL generated
+          description: Pre-signed upload URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  image_id:
+                    type: string
+                  upload_url:
+                    type: string
+                  s3_key:
+                    type: string
+                  status:
+                    type: string
+                    enum: [PENDING]
+        "400":
+          description: Missing file_name
+        "401":
+          description: Missing x-user-id header
+
   /images:
     get:
-      summary: List images for a user
+      summary: List images
+      description: Query images with filters. Supports pagination.
       parameters:
         - name: user_id
           in: query
-          required: true
-          schema: { type: string }
+          schema:
+            type: string
+          description: Filter by user (uses GSI)
+        - name: file_name
+          in: query
+          schema:
+            type: string
+          description: Filter by file name (uses GSI)
+        - name: tag
+          in: query
+          schema:
+            type: string
+          description: Filter by tag (scan + filter)
+        - name: uploaded_after
+          in: query
+          schema:
+            type: integer
+          description: Epoch timestamp — images uploaded after this time
+        - name: uploaded_before
+          in: query
+          schema:
+            type: integer
+          description: Epoch timestamp — images uploaded before this time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+          description: Max results per page
+        - name: next_token
+          in: query
+          schema:
+            type: string
+          description: Pagination token from previous response
       responses:
         "200":
-          description: List of image metadata
+          description: List of images
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ImageMetadata"
+                  count:
+                    type: integer
+                  request_id:
+                    type: string
+                  next_token:
+                    type: string
+        "400":
+          description: Invalid limit, time range, or pagination token
+
   /images/{image_id}/download:
     get:
-      summary: Get pre-signed download URL
+      summary: Download image
+      description: Generates a pre-signed S3 download URL. Only the image owner can download.
       parameters:
-        - name: image_id
-          in: path
-          required: true
-          schema: { type: string }
+        - $ref: "#/components/parameters/UserIdHeader"
+        - $ref: "#/components/parameters/ImageIdPath"
       responses:
         "200":
-          description: Download URL and metadata
+          description: Pre-signed download URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  image_id:
+                    type: string
+                  download_url:
+                    type: string
+                  expires_in:
+                    type: integer
+                    example: 3600
+                  request_id:
+                    type: string
+        "400":
+          description: Missing image_id
+        "401":
+          description: Missing x-user-id header
+        "403":
+          description: User does not own the image
+        "404":
+          description: Image not found
+
   /images/{image_id}:
     delete:
-      summary: Delete an image
+      summary: Delete image
+      description: Queues an async delete request. The image is removed from S3 and DynamoDB by the delete worker.
       parameters:
-        - name: image_id
-          in: path
-          required: true
-          schema: { type: string }
+        - $ref: "#/components/parameters/UserIdHeader"
+        - $ref: "#/components/parameters/ImageIdPath"
       responses:
-        "200":
-          description: Image deleted
+        "202":
+          description: Delete request accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Delete request accepted"
+                  image_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [PENDING]
+                  request_id:
+                    type: string
+        "400":
+          description: Missing image_id
+        "401":
+          description: Missing x-user-id header
+        "403":
+          description: User does not own the image
+        "404":
+          description: Image not found
+
+components:
+  parameters:
+    UserIdHeader:
+      name: x-user-id
+      in: header
+      required: true
+      schema:
+        type: string
+      description: User identifier (mock auth)
+    ImageIdPath:
+      name: image_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    ImageMetadata:
+      type: object
+      properties:
+        image_id:
+          type: string
+        user_id:
+          type: string
+        file_name:
+          type: string
+        s3_key:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, COMPLETED]
+        tags:
+          type: array
+          items:
+            type: string
+        uploaded_at:
+          type: integer
+        uploaded_date:
+          type: string
+          format: date
