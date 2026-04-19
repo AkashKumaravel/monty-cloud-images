@@ -1,25 +1,49 @@
+import time
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
-from .config import LOCALSTACK_ENDPOINT, DYNAMODB_TABLE
+from botocore.exceptions import ClientError
+from layer.python.config import LOCALSTACK_ENDPOINT, DYNAMODB_TABLE
+from layer.python.utils import log
 
 dynamodb = boto3.resource("dynamodb", endpoint_url=LOCALSTACK_ENDPOINT)
 table = dynamodb.Table(DYNAMODB_TABLE)
 
 
-def get_image_metadata(image_id: str):
+def get_image_metadata(image_id):
     response = table.get_item(Key={"image_id": image_id})
     return response.get("Item")
 
 
-def delete_image_metadata(image_id: str):
+def create_image_metadata(image_id, user_id, file_name, s3_key, tags=None, status="PENDING", uploaded_at=None, uploaded_date=None):
+    table.put_item(Item={
+        "image_id": image_id,
+        "user_id": user_id,
+        "file_name": file_name,
+        "s3_key": s3_key,
+        "tags": tags or [],
+        "status": status,
+        "uploaded_at": uploaded_at,
+        "uploaded_date": uploaded_date,
+    })
+
+
+def update_image_status(image_id, status):
+    table.update_item(
+        Key={"image_id": image_id},
+        UpdateExpression="SET #s = :status",
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={":status": status}
+    )
+
+
+def delete_image_metadata(image_id):
     try:
         table.delete_item(Key={"image_id": image_id})
-    except Exception as e:
-        print(f"DynamoDB delete error: {str(e)}")
-        raise e
+    except ClientError as e:
+        log("ERROR", "DynamoDB delete failed", image_id=image_id, error=str(e))
+        raise
 
 
-# 🔹 Query by user (GSI1)
 def query_by_user(user_id, uploaded_after=None, uploaded_before=None, limit=10, exclusive_start_key=None):
     key_condition = Key("user_id").eq(user_id)
 
@@ -30,42 +54,74 @@ def query_by_user(user_id, uploaded_after=None, uploaded_before=None, limit=10, 
     elif uploaded_before:
         key_condition &= Key("uploaded_at").lte(int(uploaded_before))
 
-    response = table.query(
-        IndexName="user-index",
-        KeyConditionExpression=key_condition,
-        Limit=limit,
-        ScanIndexForward=False,
-        ExclusiveStartKey=exclusive_start_key
-    )
-
-    return response.get("Items", []), response.get("LastEvaluatedKey")
-
-
-# 🔹 Query by file name (GSI2)
-def query_by_file_name(file_name, limit=10, exclusive_start_key=None):
-    response = table.query(
-        IndexName="file-name-index",
-        KeyConditionExpression=Key("file_name").eq(file_name),
-        Limit=limit,
-        ScanIndexForward=False,
-        ExclusiveStartKey=exclusive_start_key
-    )
-
-    return response.get("Items", []), response.get("LastEvaluatedKey")
-
-
-# 🔹 Scan (tag or full)
-def scan_images(tag=None, limit=10, exclusive_start_key=None):
-    scan_kwargs = {
-        "Limit": limit
+    query_kwargs = {
+        "IndexName": "user-index",
+        "KeyConditionExpression": key_condition,
+        "Limit": limit,
+        "ScanIndexForward": False,
     }
+    if exclusive_start_key:
+        query_kwargs["ExclusiveStartKey"] = exclusive_start_key
+
+    response = table.query(**query_kwargs)
+    return response.get("Items", []), response.get("LastEvaluatedKey")
+
+
+def query_by_file_name(file_name, limit=10, exclusive_start_key=None):
+    query_kwargs = {
+        "IndexName": "file-name-index",
+        "KeyConditionExpression": Key("file_name").eq(file_name),
+        "Limit": limit,
+        "ScanIndexForward": False,
+    }
+    if exclusive_start_key:
+        query_kwargs["ExclusiveStartKey"] = exclusive_start_key
+
+    response = table.query(**query_kwargs)
+    return response.get("Items", []), response.get("LastEvaluatedKey")
+
+
+def scan_images(tag=None, limit=10, exclusive_start_key=None):
+    scan_kwargs = {"Limit": limit}
 
     if exclusive_start_key:
         scan_kwargs["ExclusiveStartKey"] = exclusive_start_key
-
     if tag:
         scan_kwargs["FilterExpression"] = Attr("tags").contains(tag)
 
     response = table.scan(**scan_kwargs)
-
     return response.get("Items", []), response.get("LastEvaluatedKey")
+
+
+def delete_stale_pending(max_age_seconds=86400):
+    cutoff = int(time.time()) - max_age_seconds
+    response = table.scan(
+        FilterExpression=Attr("status").eq("PENDING") & Attr("uploaded_at").lte(cutoff)
+    )
+    items = response.get("Items", [])
+    for item in items:
+        table.delete_item(Key={"image_id": item["image_id"]})
+    return len(items)
+
+
+def image_exists(image_id):
+    response = table.get_item(
+        Key={"image_id": image_id},
+        ProjectionExpression="image_id"
+    )
+    return "Item" in response
+
+
+def put_image_metadata(item):
+    try:
+        table.put_item(
+            Item=item,
+            ConditionExpression="attribute_not_exists(image_id)"
+        )
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            log("INFO", "Duplicate image ignored (idempotent)", image_id=item["image_id"])
+            return False
+        log("ERROR", "DynamoDB put failed", error=str(e))
+        raise
