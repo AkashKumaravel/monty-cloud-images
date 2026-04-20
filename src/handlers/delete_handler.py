@@ -1,6 +1,7 @@
 from layer.python.db_service import get_image_metadata
 from layer.python.sqs_service import send_delete_message
 from layer.python.utils import generate_image_id, get_user_id, get_path_param, success, error_response, log
+from models.image_metadata import STATUS_PENDING
 
 
 def handler(event, context):
@@ -22,13 +23,13 @@ def handler(event, context):
         if not item:
             return error_response(404, "NotFound", "Image not found", request_id)
 
-        if item.get("user_id") != auth_user_id:
+        if item.user_id != auth_user_id:
             log("WARNING", "Unauthorized delete attempt", image_id=image_id, auth_user_id=auth_user_id)
             return error_response(403, "Forbidden", "You cannot delete this image", request_id)
 
         send_delete_message({
             "image_id": image_id,
-            "s3_key": item["s3_key"],
+            "s3_key": item.s3_key,
             "user_id": auth_user_id,
             "request_id": request_id
         })
@@ -38,7 +39,7 @@ def handler(event, context):
         return success({
             "message": "Delete request accepted",
             "image_id": image_id,
-            "status": "PENDING",
+            "status": STATUS_PENDING,
             "request_id": request_id
         }, 202)
 

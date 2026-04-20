@@ -1,6 +1,7 @@
 from urllib.parse import unquote_plus
 from layer.python.db_service import get_image_metadata, update_image_status
 from layer.python.utils import log
+from models.image_metadata import STATUS_PENDING, STATUS_COMPLETED
 
 
 def handler(event, context):
@@ -22,11 +23,11 @@ def handler(event, context):
                 log("WARNING", "No metadata found for S3 key", s3_key=key, image_id=image_id)
                 continue
 
-            if existing.get("status") != "PENDING":
-                log("INFO", "Already processed", image_id=image_id, status=existing.get("status"))
+            if existing.status != STATUS_PENDING:
+                log("INFO", "Already processed", image_id=image_id, status=existing.status)
                 continue
 
-            update_image_status(image_id, "COMPLETED")
+            update_image_status(image_id, STATUS_COMPLETED)
 
             log("INFO", "Marked COMPLETED", image_id=image_id, s3_key=key)
 

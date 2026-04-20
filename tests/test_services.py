@@ -184,7 +184,7 @@ def test_db_get_image_metadata(aws):
     from layer.python.db_service import get_image_metadata
     aws["table"].put_item(Item={"image_id": "t1", "user_id": "u1", "s3_key": "k", "file_name": "f.jpg", "uploaded_at": 100, "tags": []})
     item = get_image_metadata("t1")
-    assert item["user_id"] == "u1"
+    assert item.user_id == "u1"
 
 
 def test_db_get_image_metadata_not_found(aws):
@@ -201,17 +201,21 @@ def test_db_delete_image_metadata(aws):
 
 def test_db_create_image_metadata(aws):
     from layer.python.db_service import create_image_metadata, get_image_metadata
-    create_image_metadata("c1", "u1", "f.jpg", "c1_f.jpg", tags=["a"], status="PENDING", uploaded_at=100, uploaded_date="2024-01-01")
+    from models.image_metadata import ImageMetadata
+    metadata = ImageMetadata(image_id="c1", user_id="u1", file_name="f.jpg", s3_key="c1_f.jpg", tags=["a"], status="PENDING", uploaded_at=100, uploaded_date="2024-01-01")
+    create_image_metadata(metadata)
     item = get_image_metadata("c1")
-    assert item["status"] == "PENDING"
-    assert item["tags"] == ["a"]
+    assert item.status == "PENDING"
+    assert item.tags == ["a"]
 
 
 def test_db_create_image_metadata_default_tags(aws):
     from layer.python.db_service import create_image_metadata, get_image_metadata
-    create_image_metadata("c2", "u1", "f.jpg", "c2_f.jpg", uploaded_at=100, uploaded_date="2024-01-01")
+    from models.image_metadata import ImageMetadata
+    metadata = ImageMetadata(image_id="c2", user_id="u1", file_name="f.jpg", s3_key="c2_f.jpg", uploaded_at=100, uploaded_date="2024-01-01")
+    create_image_metadata(metadata)
     item = get_image_metadata("c2")
-    assert item["tags"] == []
+    assert item.tags == []
 
 
 def test_db_update_image_status(aws):
@@ -219,7 +223,7 @@ def test_db_update_image_status(aws):
     aws["table"].put_item(Item={"image_id": "upd-1", "user_id": "u1", "s3_key": "k", "file_name": "f.jpg", "uploaded_at": 100, "tags": [], "status": "PENDING"})
     update_image_status("upd-1", "COMPLETED")
     item = get_image_metadata("upd-1")
-    assert item["status"] == "COMPLETED"
+    assert item.status == "COMPLETED"
 
 
 def test_db_query_by_user(aws):
@@ -283,19 +287,21 @@ def test_db_image_exists(aws):
 
 def test_db_put_image_metadata_idempotent(aws):
     from layer.python.db_service import put_image_metadata
-    item = {"image_id": "dup-1", "user_id": "u1", "s3_key": "k", "file_name": "f.jpg", "uploaded_at": 100, "tags": []}
-    assert put_image_metadata(item) is True
-    assert put_image_metadata(item) is False
+    from models.image_metadata import ImageMetadata
+    metadata = ImageMetadata(image_id="dup-1", user_id="u1", s3_key="k", file_name="f.jpg", uploaded_at=100)
+    assert put_image_metadata(metadata) is True
+    assert put_image_metadata(metadata) is False
 
 
 def test_db_put_image_metadata_other_error(aws):
     from layer.python.db_service import put_image_metadata
+    from models.image_metadata import ImageMetadata
     with patch("layer.python.db_service.table") as mock_table:
         mock_table.put_item.side_effect = ClientError(
             {"Error": {"Code": "InternalServerError", "Message": "fail"}}, "PutItem"
         )
         with pytest.raises(ClientError):
-            put_image_metadata({"image_id": "err-1"})
+            put_image_metadata(ImageMetadata(image_id="err-1", user_id="u", file_name="f", s3_key="k"))
 
 
 def test_db_delete_stale_pending(aws):

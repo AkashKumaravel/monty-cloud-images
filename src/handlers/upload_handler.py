@@ -3,6 +3,7 @@ from layer.python.config import validate_config
 from layer.python.s3_service import generate_presigned_upload_url
 from layer.python.db_service import create_image_metadata
 from layer.python.utils import generate_image_id, get_user_id, parse_body, success, error, log
+from models.image_metadata import ImageMetadata, STATUS_PENDING
 
 
 def handler(event, context):
@@ -26,16 +27,16 @@ def handler(event, context):
         current_time = int(time.time())
         uploaded_date = time.strftime("%Y-%m-%d", time.gmtime(current_time))
 
-        create_image_metadata(
+        metadata = ImageMetadata(
             image_id=image_id,
             user_id=user_id,
             file_name=file_name,
             s3_key=s3_key,
             tags=tags,
-            status="PENDING",
             uploaded_at=current_time,
-            uploaded_date=uploaded_date
+            uploaded_date=uploaded_date,
         )
+        create_image_metadata(metadata)
 
         log("INFO", "Created PENDING metadata", image_id=image_id, user_id=user_id)
 
@@ -43,7 +44,7 @@ def handler(event, context):
             "image_id": image_id,
             "upload_url": upload_url,
             "s3_key": s3_key,
-            "status": "PENDING"
+            "status": STATUS_PENDING
         })
 
     except ValueError as e:

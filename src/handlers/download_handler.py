@@ -22,11 +22,11 @@ def handler(event, context):
         if not item:
             return error_response(404, "NotFound", "Image not found", request_id)
 
-        if item.get("user_id") != auth_user_id:
+        if item.user_id != auth_user_id:
             log("WARNING", "Unauthorized download attempt", image_id=image_id, auth_user_id=auth_user_id)
             return error_response(403, "Forbidden", "You cannot access this image", request_id)
 
-        download_url = generate_download_url(item["s3_key"])
+        download_url = generate_download_url(item.s3_key)
 
         log("INFO", "Download URL generated", image_id=image_id, request_id=request_id)
 

@@ -61,7 +61,7 @@ def test_s3_event_marks_completed(aws):
     event = {"Records": [{"s3": {"object": {"key": "img-abc_photo.jpg"}}}]}
     handler(event, None)
     item = get_image_metadata("img-abc")
-    assert item["status"] == "COMPLETED"
+    assert item.status == "COMPLETED"
 
 
 def test_s3_event_skips_already_completed(aws):
@@ -71,7 +71,7 @@ def test_s3_event_skips_already_completed(aws):
     event = {"Records": [{"s3": {"object": {"key": "img-done_photo.jpg"}}}]}
     handler(event, None)
     item = get_image_metadata("img-done")
-    assert item["status"] == "COMPLETED"
+    assert item.status == "COMPLETED"
 
 
 def test_s3_event_skips_no_metadata(aws):
@@ -93,7 +93,7 @@ def test_s3_event_url_encoded_key(aws):
     event = {"Records": [{"s3": {"object": {"key": "img-enc_my+photo.jpg"}}}]}
     handler(event, None)
     item = get_image_metadata("img-enc")
-    assert item["status"] == "COMPLETED"
+    assert item.status == "COMPLETED"
 
 
 def test_s3_event_empty_records(aws):

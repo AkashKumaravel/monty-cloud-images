@@ -4,6 +4,7 @@ from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 from layer.python.config import LOCALSTACK_ENDPOINT, DYNAMODB_TABLE
 from layer.python.utils import log
+from models.image_metadata import ImageMetadata, STATUS_PENDING
 
 dynamodb = boto3.resource("dynamodb", endpoint_url=LOCALSTACK_ENDPOINT)
 table = dynamodb.Table(DYNAMODB_TABLE)
@@ -11,20 +12,12 @@ table = dynamodb.Table(DYNAMODB_TABLE)
 
 def get_image_metadata(image_id):
     response = table.get_item(Key={"image_id": image_id})
-    return response.get("Item")
+    item = response.get("Item")
+    return ImageMetadata.from_item(item) if item else None
 
 
-def create_image_metadata(image_id, user_id, file_name, s3_key, tags=None, status="PENDING", uploaded_at=None, uploaded_date=None):
-    table.put_item(Item={
-        "image_id": image_id,
-        "user_id": user_id,
-        "file_name": file_name,
-        "s3_key": s3_key,
-        "tags": tags or [],
-        "status": status,
-        "uploaded_at": uploaded_at,
-        "uploaded_date": uploaded_date,
-    })
+def create_image_metadata(metadata: ImageMetadata):
+    table.put_item(Item=metadata.to_item())
 
 
 def update_image_status(image_id, status):
@@ -96,7 +89,7 @@ def scan_images(tag=None, limit=10, exclusive_start_key=None):
 def delete_stale_pending(max_age_seconds=86400):
     cutoff = int(time.time()) - max_age_seconds
     response = table.scan(
-        FilterExpression=Attr("status").eq("PENDING") & Attr("uploaded_at").lte(cutoff)
+        FilterExpression=Attr("status").eq(STATUS_PENDING) & Attr("uploaded_at").lte(cutoff)
     )
     items = response.get("Items", [])
     for item in items:
@@ -112,16 +105,16 @@ def image_exists(image_id):
     return "Item" in response
 
 
-def put_image_metadata(item):
+def put_image_metadata(metadata: ImageMetadata):
     try:
         table.put_item(
-            Item=item,
+            Item=metadata.to_item(),
             ConditionExpression="attribute_not_exists(image_id)"
         )
         return True
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            log("INFO", "Duplicate image ignored (idempotent)", image_id=item["image_id"])
+            log("INFO", "Duplicate image ignored (idempotent)", image_id=metadata.image_id)
             return False
         log("ERROR", "DynamoDB put failed", error=str(e))
         raise
