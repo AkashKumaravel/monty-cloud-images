@@ -363,10 +363,10 @@ curl -X DELETE http://localhost:4566/restapis/<API_ID>/dev/_user_request_/images
 make test
 ```
 
-Runs 103 unit tests using `pytest` + `moto` (AWS mock). No Docker or LocalStack needed for tests.
+Runs 109 unit tests using `pytest` + `moto` (AWS mock). No Docker or LocalStack needed for tests.
 
 ```
-====================== 103 passed in 15s ======================
+====================== 109 passed in 15s ======================
 ```
 
 ---
@@ -384,8 +384,11 @@ monty-cloud-image-service/
 │   │   ├── delete_worker.py       # SQS consumer — deletes S3 + DynamoDB
 │   │   ├── s3_event_handler.py    # S3 trigger — marks COMPLETED
 │   │   └── pending_cleanup_handler.py  # Scheduled — cleans stale PENDING
+│   ├── models/                    # Data models
+│   │   └── image_metadata.py      # ImageMetadata dataclass + DynamoDB schema
 │   └── layer/python/              # Shared Lambda layer
 │       ├── config.py              # Environment variable loading
+│       ├── constants.py           # Shared constants (status, errors, limits)
 │       ├── db_service.py          # DynamoDB operations
 │       ├── s3_service.py          # S3 operations (pre-signed URLs)
 │       ├── sqs_service.py         # SQS operations
@@ -439,7 +442,7 @@ The download handler uses `generate_download_url()` — an abstraction layer in 
 
 ```python
 # s3_service.py
-def generate_download_url(s3_key, expires_in=3600):
+def generate_download_url(s3_key, expires_in=DOWNLOAD_URL_EXPIRY):
     """Today: S3 pre-signed URL. Future: CloudFront signed URL."""
     return generate_presigned_download_url(s3_key, expires_in)
 ```
