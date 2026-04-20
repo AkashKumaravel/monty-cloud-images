@@ -3,8 +3,9 @@ import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 from layer.python.config import LOCALSTACK_ENDPOINT, DYNAMODB_TABLE
+from layer.python.constants import STATUS_PENDING, USER_INDEX, FILE_NAME_INDEX, DEFAULT_PAGE_LIMIT, STALE_THRESHOLD_SECONDS
 from layer.python.utils import log
-from models.image_metadata import ImageMetadata, STATUS_PENDING
+from models.image_metadata import ImageMetadata
 
 dynamodb = boto3.resource("dynamodb", endpoint_url=LOCALSTACK_ENDPOINT)
 table = dynamodb.Table(DYNAMODB_TABLE)
@@ -37,7 +38,7 @@ def delete_image_metadata(image_id):
         raise
 
 
-def query_by_user(user_id, uploaded_after=None, uploaded_before=None, limit=10, exclusive_start_key=None):
+def query_by_user(user_id, uploaded_after=None, uploaded_before=None, limit=DEFAULT_PAGE_LIMIT, exclusive_start_key=None):
     key_condition = Key("user_id").eq(user_id)
 
     if uploaded_after and uploaded_before:
@@ -48,7 +49,7 @@ def query_by_user(user_id, uploaded_after=None, uploaded_before=None, limit=10, 
         key_condition &= Key("uploaded_at").lte(int(uploaded_before))
 
     query_kwargs = {
-        "IndexName": "user-index",
+        "IndexName": USER_INDEX,
         "KeyConditionExpression": key_condition,
         "Limit": limit,
         "ScanIndexForward": False,
@@ -60,9 +61,9 @@ def query_by_user(user_id, uploaded_after=None, uploaded_before=None, limit=10, 
     return response.get("Items", []), response.get("LastEvaluatedKey")
 
 
-def query_by_file_name(file_name, limit=10, exclusive_start_key=None):
+def query_by_file_name(file_name, limit=DEFAULT_PAGE_LIMIT, exclusive_start_key=None):
     query_kwargs = {
-        "IndexName": "file-name-index",
+        "IndexName": FILE_NAME_INDEX,
         "KeyConditionExpression": Key("file_name").eq(file_name),
         "Limit": limit,
         "ScanIndexForward": False,
@@ -74,7 +75,7 @@ def query_by_file_name(file_name, limit=10, exclusive_start_key=None):
     return response.get("Items", []), response.get("LastEvaluatedKey")
 
 
-def scan_images(tag=None, limit=10, exclusive_start_key=None):
+def scan_images(tag=None, limit=DEFAULT_PAGE_LIMIT, exclusive_start_key=None):
     scan_kwargs = {"Limit": limit}
 
     if exclusive_start_key:
@@ -86,7 +87,7 @@ def scan_images(tag=None, limit=10, exclusive_start_key=None):
     return response.get("Items", []), response.get("LastEvaluatedKey")
 
 
-def delete_stale_pending(max_age_seconds=86400):
+def delete_stale_pending(max_age_seconds=STALE_THRESHOLD_SECONDS):
     cutoff = int(time.time()) - max_age_seconds
     response = table.scan(
         FilterExpression=Attr("status").eq(STATUS_PENDING) & Attr("uploaded_at").lte(cutoff)

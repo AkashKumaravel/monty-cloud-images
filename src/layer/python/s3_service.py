@@ -1,13 +1,14 @@
 import boto3
 from botocore.exceptions import ClientError
 from layer.python.config import LOCALSTACK_ENDPOINT, S3_BUCKET, S3_PRESIGN_ENDPOINT
+from layer.python.constants import UPLOAD_URL_EXPIRY, DOWNLOAD_URL_EXPIRY
 from layer.python.utils import log
 
 s3_client = boto3.client("s3", endpoint_url=LOCALSTACK_ENDPOINT)
 s3_presign_client = boto3.client("s3", endpoint_url=S3_PRESIGN_ENDPOINT)
 
 
-def generate_presigned_upload_url(image_id, file_name, expires_in=300):
+def generate_presigned_upload_url(image_id, file_name, expires_in=UPLOAD_URL_EXPIRY):
     s3_key = f"{image_id}_{file_name}"
     try:
         url = s3_presign_client.generate_presigned_url(
@@ -21,7 +22,7 @@ def generate_presigned_upload_url(image_id, file_name, expires_in=300):
         raise
 
 
-def generate_presigned_download_url(s3_key, expires_in=3600):
+def generate_presigned_download_url(s3_key, expires_in=DOWNLOAD_URL_EXPIRY):
     return s3_presign_client.generate_presigned_url(
         ClientMethod="get_object",
         Params={"Bucket": S3_BUCKET, "Key": s3_key},
@@ -29,7 +30,7 @@ def generate_presigned_download_url(s3_key, expires_in=3600):
     )
 
 
-def generate_download_url(s3_key, expires_in=3600):
+def generate_download_url(s3_key, expires_in=DOWNLOAD_URL_EXPIRY):
     """Today: S3 pre-signed URL. Future: CloudFront signed URL."""
     return generate_presigned_download_url(s3_key, expires_in)
 

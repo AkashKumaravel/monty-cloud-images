@@ -1,7 +1,8 @@
-from models.image_metadata import (
-    ImageMetadata, STATUS_PENDING, STATUS_COMPLETED,
-    TABLE_NAME, USER_INDEX, FILE_NAME_INDEX, PARTITION_KEY,
+from layer.python.constants import (
+    STATUS_PENDING, STATUS_COMPLETED,
+    TABLE_NAME, USER_INDEX, FILE_NAME_INDEX,
 )
+from models.image_metadata import ImageMetadata, PARTITION_KEY
 
 
 def test_to_item_all_fields():

@@ -2,6 +2,7 @@ import json
 import uuid
 import time
 from decimal import Decimal
+from layer.python.constants import RESPONSE_HEADERS, DATE_FORMAT
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -30,7 +31,7 @@ def error_response(status_code, error, message, request_id):
 def _build(status_code, body):
     return {
         "statusCode": status_code,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "headers": RESPONSE_HEADERS,
         "body": json.dumps(body, cls=DecimalEncoder),
     }
 
@@ -53,7 +54,7 @@ def current_timestamp():
 
 
 def current_date():
-    return time.strftime("%Y-%m-%d", time.gmtime())
+    return time.strftime(DATE_FORMAT, time.gmtime())
 
 
 def parse_body(event):

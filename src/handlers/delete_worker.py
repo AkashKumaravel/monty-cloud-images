@@ -1,4 +1,5 @@
 import json
+from layer.python.constants import TIMEOUT_SAFETY_MARGIN_MS
 from layer.python.s3_service import delete_s3_object
 from layer.python.db_service import delete_image_metadata
 from layer.python.utils import log
@@ -13,7 +14,7 @@ def handler(event, context):
 
         try:
             remaining = context.get_remaining_time_in_millis()
-            if remaining < 2000:
+            if remaining < TIMEOUT_SAFETY_MARGIN_MS:
                 raise TimeoutError("Lambda about to timeout")
 
             log("INFO", "Processing delete", image_id=image_id, request_id=request_id)

@@ -7,12 +7,11 @@ Billing: PAY_PER_REQUEST
 
 from dataclasses import dataclass, field
 from typing import List, Optional
+from layer.python.constants import (
+    STATUS_PENDING,
+    USER_INDEX, FILE_NAME_INDEX, TABLE_NAME,
+)
 
-
-# Table & index names
-TABLE_NAME = "monty-cloud-image-metadata"
-USER_INDEX = "user-index"
-FILE_NAME_INDEX = "file-name-index"
 
 # Key schema
 PARTITION_KEY = "image_id"  # String
@@ -30,10 +29,6 @@ GSI_DEFINITIONS = {
         "projection": "ALL",
     },
 }
-
-# Valid status values
-STATUS_PENDING = "PENDING"
-STATUS_COMPLETED = "COMPLETED"
 
 
 @dataclass

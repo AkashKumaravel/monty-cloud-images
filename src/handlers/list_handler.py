@@ -1,9 +1,11 @@
+from layer.python.constants import (
+    DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT,
+    ERR_INVALID_REQUEST, ERR_INVALID_TOKEN, ERR_INTERNAL,
+    MSG_LIMIT_EXCEEDED, MSG_INVALID_TIME_RANGE, MSG_INVALID_PAGINATION, MSG_FETCH_FAILED,
+)
 from layer.python.db_service import query_by_user, query_by_file_name, scan_images
 from layer.python.pagination import encode_token, decode_token
-from layer.python.utils import generate_image_id, get_user_id, get_query_param, success, error_response, log
-
-DEFAULT_LIMIT = 10
-MAX_LIMIT = 50
+from layer.python.utils import generate_image_id, success, error_response, log
 
 
 def handler(event, context):
@@ -16,14 +18,14 @@ def handler(event, context):
         tag = query_params.get("tag")
         uploaded_after = query_params.get("uploaded_after")
         uploaded_before = query_params.get("uploaded_before")
-        limit = int(query_params.get("limit", DEFAULT_LIMIT))
+        limit = int(query_params.get("limit", DEFAULT_PAGE_LIMIT))
         next_token = query_params.get("next_token")
 
-        if limit > MAX_LIMIT:
-            return error_response(400, "InvalidRequest", "Limit cannot exceed 50", request_id)
+        if limit > MAX_PAGE_LIMIT:
+            return error_response(400, ERR_INVALID_REQUEST, MSG_LIMIT_EXCEEDED, request_id)
 
         if uploaded_after and uploaded_before and int(uploaded_after) > int(uploaded_before):
-            return error_response(400, "InvalidRequest", "Invalid time range", request_id)
+            return error_response(400, ERR_INVALID_REQUEST, MSG_INVALID_TIME_RANGE, request_id)
 
         exclusive_start_key = decode_token(next_token) if next_token else None
 
@@ -43,7 +45,7 @@ def handler(event, context):
         return success(response)
 
     except ValueError:
-        return error_response(400, "InvalidToken", "Invalid pagination token", request_id)
+        return error_response(400, ERR_INVALID_TOKEN, MSG_INVALID_PAGINATION, request_id)
     except Exception as e:
         log("ERROR", "List API failed", error=str(e), request_id=request_id)
-        return error_response(500, "InternalError", "Failed to fetch images", request_id)
+        return error_response(500, ERR_INTERNAL, MSG_FETCH_FAILED, request_id)

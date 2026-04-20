@@ -1,17 +1,19 @@
+import base64
 import json
 import os
 import pytest
 from unittest.mock import patch
 from botocore.exceptions import ClientError
-
-
-# ── utils ──
-
 from layer.python.utils import (
     success, error, error_response, log, generate_image_id, current_timestamp,
     current_date, parse_body, get_user_id, get_path_param, get_query_param,
 )
+from layer.python.pagination import encode_token, decode_token
+from layer.python.config import get_env_variable
+from models.image_metadata import ImageMetadata
 
+
+# ── utils ──
 
 def test_success_default_status():
     resp = success({"key": "value"})
@@ -134,9 +136,6 @@ def test_get_query_param_none_params():
 
 # ── pagination ──
 
-from layer.python.pagination import encode_token, decode_token
-
-
 def test_encode_decode_token():
     original = {"image_id": "abc", "uploaded_at": 123}
     token = encode_token(original)
@@ -150,7 +149,6 @@ def test_decode_invalid_token():
 
 
 def test_decode_non_json_base64():
-    import base64
     token = base64.b64encode(b"not-json").decode()
     with pytest.raises(ValueError, match="Invalid pagination token"):
         decode_token(token)
@@ -159,7 +157,6 @@ def test_decode_non_json_base64():
 # ── config ──
 
 def test_config_get_env_variable_required_missing():
-    from layer.python.config import get_env_variable
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("NONEXISTENT_VAR", None)
         with pytest.raises(ValueError, match="Missing required environment variable"):
@@ -167,13 +164,11 @@ def test_config_get_env_variable_required_missing():
 
 
 def test_config_get_env_variable_optional():
-    from layer.python.config import get_env_variable
     result = get_env_variable("NONEXISTENT_VAR", required=False, default="fallback")
     assert result == "fallback"
 
 
 def test_config_get_env_variable_exists():
-    from layer.python.config import get_env_variable
     with patch.dict(os.environ, {"MY_VAR": "hello"}):
         assert get_env_variable("MY_VAR") == "hello"
 
@@ -201,7 +196,6 @@ def test_db_delete_image_metadata(aws):
 
 def test_db_create_image_metadata(aws):
     from layer.python.db_service import create_image_metadata, get_image_metadata
-    from models.image_metadata import ImageMetadata
     metadata = ImageMetadata(image_id="c1", user_id="u1", file_name="f.jpg", s3_key="c1_f.jpg", tags=["a"], status="PENDING", uploaded_at=100, uploaded_date="2024-01-01")
     create_image_metadata(metadata)
     item = get_image_metadata("c1")
@@ -211,7 +205,6 @@ def test_db_create_image_metadata(aws):
 
 def test_db_create_image_metadata_default_tags(aws):
     from layer.python.db_service import create_image_metadata, get_image_metadata
-    from models.image_metadata import ImageMetadata
     metadata = ImageMetadata(image_id="c2", user_id="u1", file_name="f.jpg", s3_key="c2_f.jpg", uploaded_at=100, uploaded_date="2024-01-01")
     create_image_metadata(metadata)
     item = get_image_metadata("c2")
@@ -287,7 +280,6 @@ def test_db_image_exists(aws):
 
 def test_db_put_image_metadata_idempotent(aws):
     from layer.python.db_service import put_image_metadata
-    from models.image_metadata import ImageMetadata
     metadata = ImageMetadata(image_id="dup-1", user_id="u1", s3_key="k", file_name="f.jpg", uploaded_at=100)
     assert put_image_metadata(metadata) is True
     assert put_image_metadata(metadata) is False
@@ -295,7 +287,6 @@ def test_db_put_image_metadata_idempotent(aws):
 
 def test_db_put_image_metadata_other_error(aws):
     from layer.python.db_service import put_image_metadata
-    from models.image_metadata import ImageMetadata
     with patch("layer.python.db_service.table") as mock_table:
         mock_table.put_item.side_effect = ClientError(
             {"Error": {"Code": "InternalServerError", "Message": "fail"}}, "PutItem"

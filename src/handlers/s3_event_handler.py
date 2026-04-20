@@ -1,7 +1,7 @@
 from urllib.parse import unquote_plus
+from layer.python.constants import STATUS_PENDING, STATUS_COMPLETED
 from layer.python.db_service import get_image_metadata, update_image_status
 from layer.python.utils import log
-from models.image_metadata import STATUS_PENDING, STATUS_COMPLETED
 
 
 def handler(event, context):
