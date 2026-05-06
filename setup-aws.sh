@@ -192,18 +192,20 @@ echo "🔔 Configuring S3 event notification..."
 S3_EVENT_LAMBDA_ARN="arn:aws:lambda:$REGION:000000000000:function:s3-event-handler"
 
 # Lambda needs a moment to be fully registered before S3 can validate it
-sleep 5
-
-$AWS s3api put-bucket-notification-configuration \
-  --bucket $S3_BUCKET \
-  --notification-configuration "{
-    \"LambdaFunctionConfigurations\": [
-      {
-        \"LambdaFunctionArn\": \"$S3_EVENT_LAMBDA_ARN\",
-        \"Events\": [\"s3:ObjectCreated:*\"]
-      }
-    ]
-  }"
+for i in {1..10}; do
+  $AWS s3api put-bucket-notification-configuration \
+    --bucket $S3_BUCKET \
+    --notification-configuration "{
+      \"LambdaFunctionConfigurations\": [
+        {
+          \"LambdaFunctionArn\": \"$S3_EVENT_LAMBDA_ARN\",
+          \"Events\": [\"s3:ObjectCreated:*\"]
+        }
+      ]
+    }" 2>/dev/null && break
+  echo "  ⏳ Lambda not ready yet, retrying ($i/10)..."
+  sleep 3
+done
 
 echo "  ✅ S3 ObjectCreated → s3-event-handler"
 
